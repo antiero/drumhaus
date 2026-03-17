@@ -12,7 +12,8 @@ type DialogName =
   | "share"
   | "renamePreset"
   | "deletePresetConfirm"
-  | "duplicatePreset";
+  | "duplicatePreset"
+  | "midiSettings";
 
 interface DialogData {
   preset?: {

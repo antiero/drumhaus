@@ -28,6 +28,12 @@ const ShareDialog = lazy(() =>
   })),
 );
 
+const MidiOutputsDialog = lazy(() =>
+  import("@/features/midi/dialogs/midi-outputs-dialog").then((module) => ({
+    default: module.MidiOutputsDialog,
+  })),
+);
+
 const RenamePresetDialog = lazy(() =>
   import("@/features/preset/dialogs/rename-preset-dialog").then((module) => ({
     default: module.RenamePresetDialog,
@@ -204,6 +210,13 @@ function PresetControl() {
           isOpen={activeDialog === "share"}
           onClose={closeDialog}
           onShare={sharePreset}
+        />
+      </Suspense>
+
+      <Suspense fallback={null}>
+        <MidiOutputsDialog
+          isOpen={activeDialog === "midiSettings"}
+          onClose={closeDialog}
         />
       </Suspense>
 

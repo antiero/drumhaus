@@ -6,6 +6,7 @@ import type { PresetFileV1 } from "@/features/preset/types/preset";
 interface DrumhausContextValue {
   instrumentRuntimes: RefObject<InstrumentRuntime[]>;
   instrumentRuntimesVersion: number;
+  ensureAudioReady: () => Promise<boolean>;
   loadPreset: (preset: PresetFileV1) => void;
 }
 

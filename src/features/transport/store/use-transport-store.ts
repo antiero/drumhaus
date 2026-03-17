@@ -39,7 +39,10 @@ const useTransportStore = create<TransportState>()(
         // Actions
         togglePlay: async (instrumentRuntimes, onStop) => {
           // Start Tone.js context if needed
-          await startAudioContext();
+          const didStartAudio = await startAudioContext();
+          if (!didStartAudio) {
+            return;
+          }
 
           set((state) => {
             const newIsPlaying = !state.isPlaying;

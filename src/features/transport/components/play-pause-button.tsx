@@ -5,7 +5,7 @@ import { useTransportStore } from "@/features/transport/store/use-transport-stor
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui";
 
 const PlayPauseButton = () => {
-  const { instrumentRuntimes } = useDrumhaus();
+  const { instrumentRuntimes, ensureAudioReady } = useDrumhaus();
   const isPlaying = useTransportStore((state) => state.isPlaying);
   const togglePlay = useTransportStore((state) => state.togglePlay);
 
@@ -16,7 +16,16 @@ const PlayPauseButton = () => {
           <Button
             variant="hardware"
             className="h-(--app-play-button) w-(--app-play-button) rounded-xl p-1 [&_svg]:size-[50px]!"
-            onClick={() => togglePlay(instrumentRuntimes.current)}
+            onClick={() => {
+              void (async () => {
+                const didStartAudio = await ensureAudioReady();
+                if (!didStartAudio) {
+                  return;
+                }
+
+                await togglePlay(instrumentRuntimes.current);
+              })();
+            }}
             onKeyDown={(ev) => {
               if (ev.key === " " || ev.key === "Enter") {
                 ev.preventDefault();

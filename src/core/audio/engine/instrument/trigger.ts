@@ -1,5 +1,9 @@
 import { now } from "tone/build/esm/index";
 
+import {
+  sendMidiInstrumentNoteAtTime,
+  sendMidiInstrumentNoteOffAtTime,
+} from "@/core/midi/web-midi";
 import { instrumentDecayMapping, tuneMapping } from "@/shared/knob/lib/mapping";
 import { getCurrentTime } from "../transport/transport";
 import type { InstrumentData, InstrumentRuntime } from "./types";
@@ -7,6 +11,12 @@ import type { InstrumentData, InstrumentRuntime } from "./types";
 // -----------------------------------------------------------------------------
 // Instrument triggering
 // -----------------------------------------------------------------------------
+
+interface TriggerInstrumentOptions {
+  velocity?: number;
+  instrumentIndex?: number;
+  sendMidi?: boolean;
+}
 
 /**
  * Unified instrument trigger function used by all playback paths.
@@ -23,8 +33,10 @@ function triggerInstrumentAtTime(
   tune: number,
   decay: number,
   time: number,
-  velocity: number = 1,
+  options: TriggerInstrumentOptions = {},
 ): void {
+  const { velocity = 1, instrumentIndex, sendMidi = false } = options;
+
   // Enforce monophonic behavior - stop any previous notes for all pitches
   triggerInstrumentReleaseAtTime(runtime, time);
 
@@ -33,6 +45,10 @@ function triggerInstrumentAtTime(
   env.triggerAttack(time);
   env.triggerRelease(time + decay);
   runtime.samplerNode.triggerAttack(tune, time, velocity);
+
+  if (sendMidi && instrumentIndex !== undefined) {
+    sendMidiInstrumentNoteAtTime(instrumentIndex, decay, velocity, time);
+  }
 }
 
 /**
@@ -42,6 +58,7 @@ async function triggerInstrument(
   runtime: InstrumentRuntime,
   tune: number,
   decay: number,
+  options: TriggerInstrumentOptions = {},
 ) {
   if (!runtime.samplerNode.loaded) {
     return;
@@ -51,7 +68,7 @@ async function triggerInstrument(
   const tuneValue = tuneMapping.knobToDomain(tune);
   const decayValue = instrumentDecayMapping.knobToDomain(decay);
 
-  triggerInstrumentAtTime(runtime, tuneValue, decayValue, time);
+  triggerInstrumentAtTime(runtime, tuneValue, decayValue, time, options);
 }
 
 // -----------------------------------------------------------------------------
@@ -143,6 +160,7 @@ function triggerOHatReleaseAtTime(
   instruments: InstrumentData[],
   runtimes: InstrumentRuntime[],
   ohatIndex: number,
+  sendMidi: boolean = false,
 ): void {
   const ohInst = instruments[ohatIndex];
   const ohRuntime = runtimes[ohatIndex];
@@ -150,6 +168,10 @@ function triggerOHatReleaseAtTime(
 
   const ohTune = tuneMapping.knobToDomain(ohInst.params.tune);
   ohRuntime.samplerNode.triggerRelease(ohTune, time);
+
+  if (sendMidi) {
+    sendMidiInstrumentNoteOffAtTime(ohatIndex, time);
+  }
 }
 
 // -----------------------------------------------------------------------------

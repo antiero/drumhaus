@@ -7,11 +7,13 @@ import { useDialogStore } from "@/shared/store/use-dialog-store";
 interface UseSpacebarTogglePlayProps {
   instrumentRuntimes: RefObject<InstrumentRuntime[]>;
   instrumentRuntimesVersion: number;
+  ensureAudioReady: () => Promise<boolean>;
 }
 
 function useSpacebarTogglePlay({
   instrumentRuntimes,
   instrumentRuntimesVersion,
+  ensureAudioReady,
 }: UseSpacebarTogglePlayProps) {
   const isAnyDialogOpen = useDialogStore((state) => state.isAnyDialogOpen);
   const togglePlay = useTransportStore((state) => state.togglePlay);
@@ -33,7 +35,14 @@ function useSpacebarTogglePlay({
       e.preventDefault();
 
       if (!isAnyDialogOpen()) {
-        togglePlay(instrumentRuntimes.current);
+        void (async () => {
+          const didStartAudio = await ensureAudioReady();
+          if (!didStartAudio) {
+            return;
+          }
+
+          await togglePlay(instrumentRuntimes.current);
+        })();
       }
     };
 
@@ -41,6 +50,7 @@ function useSpacebarTogglePlay({
     return () => document.removeEventListener("keydown", handleKeydown);
   }, [
     isAnyDialogOpen,
+    ensureAudioReady,
     instrumentRuntimes,
     instrumentRuntimesVersion,
     togglePlay,

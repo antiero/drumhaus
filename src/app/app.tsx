@@ -56,7 +56,8 @@ function getPresetTitleFromSlug(slug: string | null): string {
 
 function AppOrchestrator() {
   // --- Context (requires providers) ---
-  const { instrumentRuntimes, instrumentRuntimesVersion } = useDrumhaus();
+  const { instrumentRuntimes, instrumentRuntimesVersion, ensureAudioReady } =
+    useDrumhaus();
   const { areWaveformsReady } = useWaveform();
 
   // --- Dialog State ---
@@ -69,6 +70,7 @@ function AppOrchestrator() {
   useSpacebarTogglePlay({
     instrumentRuntimes,
     instrumentRuntimesVersion,
+    ensureAudioReady,
   });
 
   useSequencerEscToVoice();

@@ -2,6 +2,7 @@ import { useCallback, useRef } from "react";
 
 import { triggerInstrument } from "@/core/audio/engine";
 import type { InstrumentRuntime } from "@/core/audio/engine/instrument/types";
+import { useDrumhaus } from "@/core/providers/drumhaus-provider";
 import { cn } from "@/shared/lib/utils";
 import { useWaveformData, Waveform } from "@/shared/waveform";
 import { useInstrumentsStore } from "../store/use-instruments-store";
@@ -27,6 +28,7 @@ function InstrumentHeader({
   onInteract,
 }: InstrumentHeaderProps) {
   const waveButtonRef = useRef<HTMLButtonElement>(null);
+  const { ensureAudioReady } = useDrumhaus();
 
   const samplePath = useInstrumentsStore(
     (state) => state.instruments[index].sample.path,
@@ -57,8 +59,16 @@ function InstrumentHeader({
       return;
     }
 
-    await triggerInstrument(runtime, tune, decay);
-  }, [onInteract, runtime, tune, decay]);
+    const didStartAudio = await ensureAudioReady();
+    if (!didStartAudio) {
+      return;
+    }
+
+    await triggerInstrument(runtime, tune, decay, {
+      instrumentIndex: index,
+      sendMidi: true,
+    });
+  }, [decay, ensureAudioReady, index, onInteract, runtime, tune]);
 
   return (
     <button

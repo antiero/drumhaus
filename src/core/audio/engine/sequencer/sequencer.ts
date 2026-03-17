@@ -154,6 +154,7 @@ function createDrumSequence(
           ohatIndex,
           instruments,
           currentRuntimes,
+          true,
         );
       }
 
@@ -231,6 +232,7 @@ function scheduleVoiceCore(
   runtime: InstrumentRuntime,
   instruments: InstrumentData[],
   runtimes: InstrumentRuntime[],
+  sendMidi: boolean,
   velocityOverride?: number,
   skipTriggerCheck = false,
 ): void {
@@ -260,7 +262,13 @@ function scheduleVoiceCore(
 
   // Closed hat mutes open hat
   if (inst.role === "hat" && hasOhat) {
-    triggerOHatReleaseAtTime(adjustedTime, instruments, runtimes, ohatIndex);
+    triggerOHatReleaseAtTime(
+      adjustedTime,
+      instruments,
+      runtimes,
+      ohatIndex,
+      sendMidi,
+    );
   }
 
   // Check for flam: trigger grace note before main hit
@@ -268,24 +276,30 @@ function scheduleVoiceCore(
   if (hasFlam) {
     const flamGraceTime = adjustedTime - FLAM_OFFSET_SECONDS;
     const flamGraceVelocity = velocity * FLAM_GRACE_VELOCITY;
-    triggerInstrumentAtTime(
-      runtime,
-      tune,
-      decayTime,
-      flamGraceTime,
-      flamGraceVelocity,
-    );
+    triggerInstrumentAtTime(runtime, tune, decayTime, flamGraceTime, {
+      velocity: flamGraceVelocity,
+      instrumentIndex: voice.instrumentIndex,
+      sendMidi,
+    });
   }
 
   // Main trigger
-  triggerInstrumentAtTime(runtime, tune, decayTime, adjustedTime, velocity);
+  triggerInstrumentAtTime(runtime, tune, decayTime, adjustedTime, {
+    velocity,
+    instrumentIndex: voice.instrumentIndex,
+    sendMidi,
+  });
 
   // Check for ratchet: trigger additional hit after main hit
   const hasRatchet = ratchets[step] ?? false;
   if (hasRatchet) {
     const ratchetOffsetSeconds = RATCHET_OFFSET_BEATS * secondsPerBeat;
     const ratchetTime = adjustedTime + ratchetOffsetSeconds;
-    triggerInstrumentAtTime(runtime, tune, decayTime, ratchetTime, velocity);
+    triggerInstrumentAtTime(runtime, tune, decayTime, ratchetTime, {
+      velocity,
+      instrumentIndex: voice.instrumentIndex,
+      sendMidi,
+    });
   }
 }
 
@@ -326,6 +340,7 @@ function scheduleVoiceAtTime(
     runtime,
     instruments,
     runtimes,
+    false,
   );
 }
 
@@ -339,6 +354,7 @@ function schedulePrecomputedStep(
   ohatIndex: number,
   instruments: InstrumentData[],
   runtimes: InstrumentRuntime[],
+  sendMidi: boolean,
 ): void {
   for (let i = 0; i < hits.length; i++) {
     const { voice, velocity } = hits[i];
@@ -360,6 +376,7 @@ function schedulePrecomputedStep(
       runtime,
       instruments,
       runtimes,
+      sendMidi,
       velocity,
       true,
     );
@@ -437,6 +454,7 @@ function createOfflineSequence(
           ohatIndex,
           instruments,
           runtimes,
+          false,
         );
       }
 

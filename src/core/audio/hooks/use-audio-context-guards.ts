@@ -18,7 +18,7 @@ function useAudioContextGuards() {
   const timeoutsRef = useRef<number[]>([]);
 
   useEffect(() => {
-    let hasStartedOnce = false;
+    let hasStartedOnce = getContext().state === "running";
     const ENSURE_THROTTLE_MS = 250;
     const CHECK_DELAY_MS = [300, 900]; // check after initial delay, then again if still stalled
     const CTX_DELTA_THRESHOLD = 0.005; // seconds
@@ -85,6 +85,8 @@ function useAudioContextGuards() {
     };
 
     const handleVisibility = () => {
+      if (!hasStartedOnce) return;
+
       if (document.visibilityState === "visible") {
         ensureWithThrottle("visibilitychange");
         scheduleChecks("visibilitychange");
@@ -94,11 +96,15 @@ function useAudioContextGuards() {
     };
 
     const handlePageShow = () => {
+      if (!hasStartedOnce) return;
+
       ensureWithThrottle("pageshow");
       scheduleChecks("pageshow");
     };
 
     const handleFocus = () => {
+      if (!hasStartedOnce) return;
+
       ensureWithThrottle("focus");
       scheduleChecks("focus");
     };

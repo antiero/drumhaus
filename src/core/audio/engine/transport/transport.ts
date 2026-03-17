@@ -1,6 +1,10 @@
 import { getTransport, now, Ticks } from "tone/build/esm/index";
 
 import {
+  sendMidiTransportStart,
+  sendMidiTransportStop,
+} from "@/core/midi/web-midi";
+import {
   SEQUENCE_SUBDIVISION,
   STEP_COUNT,
   TRANSPORT_SWING_MAX,
@@ -11,8 +15,8 @@ import { ensureAudioContextIsRunning } from "../context/manager";
 /**
  * Start or resume the audio context
  */
-async function startAudioContext(): Promise<void> {
-  await ensureAudioContextIsRunning("transport");
+async function startAudioContext(): Promise<boolean> {
+  return await ensureAudioContextIsRunning("transport");
 }
 
 /**
@@ -21,6 +25,7 @@ async function startAudioContext(): Promise<void> {
  * @param offset The timeline offset to start the transport.
  */
 function startTransport(time?: number, offset?: number): void {
+  sendMidiTransportStart(time);
   getTransport().start(time, offset);
 }
 
@@ -30,6 +35,7 @@ function startTransport(time?: number, offset?: number): void {
  * @param onStop Optional callback to execute after stopping the transport.
  */
 function stopTransport(time?: number, onStop?: () => void): void {
+  sendMidiTransportStop(time);
   getTransport().stop(time);
   if (onStop) {
     onStop();

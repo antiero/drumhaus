@@ -1,4 +1,4 @@
-import { RefObject, useEffect, useRef, useState } from "react";
+import { RefObject, useCallback, useEffect, useRef, useState } from "react";
 import type { Sequence } from "tone/build/esm/index";
 
 import { InstrumentRuntime } from "@/core/audio/engine/instrument/types";
@@ -21,6 +21,7 @@ import {
   disposeMasterChainRuntimes,
   MasterChainRuntimes,
   releaseNonSoloRuntimes,
+  startAudioContext,
   subscribeRuntimeToInstrumentParams,
   updateMasterChainParams,
   waitForBuffersToLoad,
@@ -31,6 +32,7 @@ import { useAudioContextGuards } from "./use-audio-context-guards";
 interface UseAudioEngineResult {
   instrumentRuntimes: RefObject<InstrumentRuntime[]>;
   instrumentRuntimesVersion: number;
+  ensureAudioReady: () => Promise<boolean>;
 }
 
 function useAudioEngine(): UseAudioEngineResult {
@@ -164,71 +166,88 @@ function useAudioEngine(): UseAudioEngineResult {
   // Master Chain Runtimes
   const masterChainRuntimes = useRef<MasterChainRuntimes | null>(null);
   const isInitialized = useRef(false);
+  const initPromiseRef = useRef<Promise<boolean> | null>(null);
   const unsubscribeRef = useRef<(() => void) | null>(null);
 
-  // Initialize master chain runtimes once and set up subscription
-  useEffect(() => {
-    if (isInitialized.current) return;
+  const subscribeToMasterChain = useCallback(() => {
+    if (unsubscribeRef.current) return;
 
-    const initializeMasterChain = async () => {
-      // Get initial params without subscribing
-      // Dispose old runtimes if any exist
-      disposeMasterChainRuntimes(masterChainRuntimes.current);
+    let prevParams: MasterChainParams | null = null;
 
-      // Create new runtimes and assign to ref
-      masterChainRuntimes.current = await createMasterChainRuntimes(
-        getMasterChainParams(),
-      );
+    unsubscribeRef.current = useMasterChainStore.subscribe((state) => {
+      if (!masterChainRuntimes.current) return;
 
-      isInitialized.current = true;
+      const currentParams = {
+        filter: state.filter,
+        saturation: state.saturation,
+        phaser: state.phaser,
+        reverb: state.reverb,
+        compThreshold: state.compThreshold,
+        compRatio: state.compRatio,
+        compAttack: state.compAttack,
+        compMix: state.compMix,
+        masterVolume: state.masterVolume,
+      };
 
-      // Set up subscription after initialization
-      let prevParams: MasterChainParams | null = null;
+      if (
+        !prevParams ||
+        prevParams.filter !== currentParams.filter ||
+        prevParams.saturation !== currentParams.saturation ||
+        prevParams.phaser !== currentParams.phaser ||
+        prevParams.reverb !== currentParams.reverb ||
+        prevParams.compThreshold !== currentParams.compThreshold ||
+        prevParams.compRatio !== currentParams.compRatio ||
+        prevParams.compAttack !== currentParams.compAttack ||
+        prevParams.compMix !== currentParams.compMix ||
+        prevParams.masterVolume !== currentParams.masterVolume
+      ) {
+        updateMasterChainParams(masterChainRuntimes.current, currentParams);
+        prevParams = currentParams;
+      }
+    });
+  }, []);
 
-      unsubscribeRef.current = useMasterChainStore.subscribe((state) => {
-        if (!masterChainRuntimes.current) return;
+  const ensureAudioReady = useCallback(async (): Promise<boolean> => {
+    const didStartAudio = await startAudioContext();
+    if (!didStartAudio) {
+      return false;
+    }
 
-        // Extract current params
-        const currentParams = {
-          filter: state.filter,
-          saturation: state.saturation,
-          phaser: state.phaser,
-          reverb: state.reverb,
-          compThreshold: state.compThreshold,
-          compRatio: state.compRatio,
-          compAttack: state.compAttack,
-          compMix: state.compMix,
-          masterVolume: state.masterVolume,
-        };
+    if (isInitialized.current && masterChainRuntimes.current) {
+      return true;
+    }
 
-        // Only update if params actually changed
-        if (
-          !prevParams ||
-          prevParams.filter !== currentParams.filter ||
-          prevParams.saturation !== currentParams.saturation ||
-          prevParams.phaser !== currentParams.phaser ||
-          prevParams.reverb !== currentParams.reverb ||
-          prevParams.compThreshold !== currentParams.compThreshold ||
-          prevParams.compRatio !== currentParams.compRatio ||
-          prevParams.compAttack !== currentParams.compAttack ||
-          prevParams.compMix !== currentParams.compMix ||
-          prevParams.masterVolume !== currentParams.masterVolume
-        ) {
-          updateMasterChainParams(masterChainRuntimes.current, currentParams);
-          prevParams = currentParams;
+    if (!initPromiseRef.current) {
+      initPromiseRef.current = (async () => {
+        disposeMasterChainRuntimes(masterChainRuntimes.current);
+        masterChainRuntimes.current = await createMasterChainRuntimes(
+          getMasterChainParams(),
+        );
+        isInitialized.current = true;
+        subscribeToMasterChain();
+
+        if (instrumentRuntimes.current.length > 0) {
+          connectInstrumentsToMasterChain(
+            instrumentRuntimes.current,
+            masterChainRuntimes.current,
+          );
         }
+
+        return true;
+      })().finally(() => {
+        initPromiseRef.current = null;
       });
-    };
+    }
 
-    initializeMasterChain();
+    return await initPromiseRef.current;
+  }, [subscribeToMasterChain]);
 
+  useEffect(() => {
     return () => {
-      // Clean up subscription
       if (unsubscribeRef.current) {
         unsubscribeRef.current();
         unsubscribeRef.current = null;
       }
-      // Only dispose on unmount, not on every instrument change
       if (isInitialized.current) {
         disposeMasterChainRuntimes(masterChainRuntimes.current);
         masterChainRuntimes.current = null;
@@ -250,6 +269,7 @@ function useAudioEngine(): UseAudioEngineResult {
   return {
     instrumentRuntimes,
     instrumentRuntimesVersion,
+    ensureAudioReady,
   };
 }
 

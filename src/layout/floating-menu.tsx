@@ -1,9 +1,11 @@
 import { useState } from "react";
 
 import { useDebugStore } from "@/features/debug/store/use-debug-store";
+import { useMidiStore } from "@/features/midi/store/use-midi-store";
 import { useNightModeStore } from "@/features/night/store/use-night-mode-store";
 import { AboutDialog } from "@/shared/dialogs/about-dialog";
 import { DrumhausLogo } from "@/shared/icon/drumhaus-logo";
+import { useDialogStore } from "@/shared/store/use-dialog-store";
 import {
   SCALE_OPTIONS,
   useLayoutScaleStore,
@@ -17,6 +19,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -31,8 +34,12 @@ const SCALE_MENU_OPTIONS = SCALE_OPTIONS.map((value) => ({
 function FloatingMenu() {
   const [isAboutOpen, setIsAboutOpen] = useState(false);
 
+  const openDialog = useDialogStore((state) => state.openDialog);
   const debugMode = useDebugStore((state) => state.debugMode);
   const toggleDebugMode = useDebugStore((state) => state.toggleDebugMode);
+  const inputEnabled = useMidiStore((state) => state.inputEnabled);
+  const outputEnabled = useMidiStore((state) => state.outputEnabled);
+  const clockEnabled = useMidiStore((state) => state.clockEnabled);
   const potatoMode = usePerformanceStore((state) => state.potatoMode);
   const togglePotatoMode = usePerformanceStore(
     (state) => state.togglePotatoMode,
@@ -48,6 +55,7 @@ function FloatingMenu() {
 
   const isAtMinScale = scale <= SCALE_OPTIONS[0];
   const isAtMaxScale = scale >= SCALE_OPTIONS[SCALE_OPTIONS.length - 1];
+  const isAnyMidiEnabled = inputEnabled || outputEnabled || clockEnabled;
 
   const handleTogglePotatoMode = () => {
     if (nightMode) {
@@ -94,6 +102,13 @@ function FloatingMenu() {
             }}
           >
             Report an Issue
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => openDialog("midiSettings")}>
+            MIDI Settings
+            {isAnyMidiEnabled ? (
+              <DropdownMenuShortcut>On</DropdownMenuShortcut>
+            ) : null}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuCheckboxItem
